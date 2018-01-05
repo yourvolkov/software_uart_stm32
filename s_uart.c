@@ -78,10 +78,10 @@ static uint8_t majority_function(uint8_t* middle_sample){
 		s_uart_timer.Init.CounterMode = TIM_COUNTERMODE_UP;
 		s_uart_timer.Init.Period = S_UART_TIMER_PERIOD;
 		s_uart_timer.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
-		HAL_TIM_Base_Start(&s_uart_timer);
   		if (HAL_TIM_Base_Init(&s_uart_timer) != HAL_OK){
     		Error_Handler();
   		}
+		HAL_TIM_Base_Start(&s_uart_timer);
 		HAL_TIM_Base_Start_IT(&s_uart_timer);
 	#else 
 		/* Standart peripheral lib realization */
@@ -123,38 +123,33 @@ void S_UART_Timer_Handler(soft_uart* s_uart){
 
 	/*** Transmitting part ***/
 	if(( (s_uart->SR)&(1 << TXE_FLAG) ) == 0){ // Means tx buffer is not empty
-		if(s_uart->tx_sample_cnt == 0){
+		if(s_uart->tx_sample_cnt < (S_UART_SAMPLES_PER_BIT - 1)){
 			if(s_uart->tx_bit_cnt == 0){ // means that we need to send a start bit
 				GPIO_Clear_Bit(s_uart->peripheral.s_uart_port, s_uart->peripheral.s_uart_tx_pin);
-				s_uart->tx_sample_cnt++;
-				s_uart->tx_bit_cnt++;
-			}else if( ((s_uart->tx_bit_cnt) > 0) && ((s_uart->tx_bit_cnt) < (DATA_BIT_LEN - 1))){ // sending a data byte
-				if( ( (s_uart->TDR) & (1 << (s_uart->tx_bit_cnt - 1)) ) != 0){
-					GPIO_Set_Bit(s_uart->peripheral.s_uart_port, s_uart->peripheral.s_uart_tx_pin);
-				}else{
-					GPIO_Clear_Bit(s_uart->peripheral.s_uart_port, s_uart->peripheral.s_uart_tx_pin);
-				}
-				s_uart->tx_sample_cnt++;
-				s_uart->tx_bit_cnt++;
-			}else if(s_uart->tx_bit_cnt == (DATA_BIT_LEN - 1)){ // means that we need to send a stop bit
-				GPIO_Set_Bit(s_uart->peripheral.s_uart_port, s_uart->peripheral.s_uart_tx_pin);
-				s_uart->tx_sample_cnt++;
-				s_uart->tx_bit_cnt++;
-			}else if(s_uart->tx_bit_cnt == DATA_BIT_LEN){ // means that transmission of one byte is done
-				SET_FLAG(s_uart->SR, TC_FLAG);
-				SET_FLAG(s_uart->SR, TXE_FLAG);	
-				s_uart->tx_bit_cnt = 0;		
-			}else{ // unknown counter value
-				s_uart->tx_bit_cnt = 0;
-				s_uart->tx_sample_cnt = 0;
-				SET_FLAG(s_uart->SR, TXE_FLAG);
 			}
+			s_uart->tx_sample_cnt++;
+
 		}else{
-			if(s_uart->tx_sample_cnt < (S_UART_SAMPLES_PER_BIT - 1)){
-				s_uart->tx_sample_cnt++;
-			}else{
+				s_uart->tx_bit_cnt++;
+				if( ((s_uart->tx_bit_cnt) > 0) && ((s_uart->tx_bit_cnt) < (DATA_BIT_LEN - 1))){ // sending a data byte
+					if( ( (s_uart->TDR) & (1 << (s_uart->tx_bit_cnt - 1)) ) != 0){
+						GPIO_Set_Bit(s_uart->peripheral.s_uart_port, s_uart->peripheral.s_uart_tx_pin);
+					}else{
+						GPIO_Clear_Bit(s_uart->peripheral.s_uart_port, s_uart->peripheral.s_uart_tx_pin);
+					}
+				}else if(s_uart->tx_bit_cnt == (DATA_BIT_LEN - 1)){ // means that we need to send a stop bit
+					GPIO_Set_Bit(s_uart->peripheral.s_uart_port, s_uart->peripheral.s_uart_tx_pin);
+				}else if(s_uart->tx_bit_cnt == DATA_BIT_LEN){ // means that transmission of one byte is done
+					SET_FLAG(s_uart->SR, TC_FLAG);
+					SET_FLAG(s_uart->SR, TXE_FLAG);	
+					s_uart->tx_bit_cnt = 0;		
+				}else{ // unknown counter value
+					s_uart->tx_bit_cnt = 0;
+					s_uart->tx_sample_cnt = 0;
+					SET_FLAG(s_uart->SR, TXE_FLAG);
+				}				
 				s_uart->tx_sample_cnt = 0;
-			}
+
 			
 		} 
 	}

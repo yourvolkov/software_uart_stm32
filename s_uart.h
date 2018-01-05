@@ -18,7 +18,7 @@
 						
 #define SOFTWARE_UART				1
 
-#define BAUDERATE 					2400 // 9600 max
+#define BAUDERATE 					2400 //max 9600
 
 #ifdef SOFTWARE_UART 
 	#define S_UART_RX_PIN			GPIO_PIN_11
